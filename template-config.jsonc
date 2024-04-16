@@ -1,0 +1,23 @@
+{ // please dont commit/publish/push ur api key
+    "CANVAS-API-KEY": "",
+    // you can get one at https://memphis.instructure.com/profile/settings and click the "+ New Access Token" button
+    "BASE_URL": "https://memphis.instructure.com",
+    "Classes": { // "class name": {"classid": "", "output-dir": "path"}
+        "COMP 3081": {
+            "classid" : "",  // the 114264 in memphis.instructure.com/courses/114264
+            "output-dir": "" // path to dir where you want ur files saved  
+        },
+        "COMP 4030": {
+            "classid": "114411",
+            "output-dir": "c:/Users/<user>/<path>" // replace 
+        },
+        "another class1": {
+            "classid": "",
+            "output-dir": "c:/Users/<user>/<path>" 
+        },
+        "another class2": {
+            "classid": "",
+            "output-dir": "c:/Users/<user>/<path>"
+        }
+    }
+}
