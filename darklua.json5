@@ -1,0 +1,12 @@
+{
+  rules: ["remove_types", "convert_local_function_to_assign", "remove_spaces", {rule: "rename_variables", include_functions: true}, "remove_comments", "compute_expression", "remove_function_call_parens", "convert_index_to_field"],
+  bundle: {
+    excludes: ["@lune/**"],
+    require_mode: {
+      name: "path",
+      sources: {
+          libraries: "./libraries"
+      },
+    },
+  },
+}
