@@ -20,8 +20,9 @@ Now your homework shall be delivered automagically
    5. replace config values the relevant info, including your classes' classids and the paths you want to save your new files to.
    6. open any cli and run the binary; it should provide some output of success/errors/downloads
 
-autorun doesn't give feedback when downloading filesatm; run canvas-getter.exe or canvas-getter-linux in cli to see downloads & feedback in output. 
-### lastly, pls dont publish your api key on the internet and pls and don't commit your real config file
+### autorun:
+1. minimizes to the system tray and runs in the background, and runs canvas-getter every hour.
+2. doesn't give feedback when downloading files atm; you can run canvas-getter.exe or canvas-getter-linux in cli to see downloads & feedback in output. 
 
 ## Building
 bundle main.luau with darklua with provided config; then compile to binary with `lune build`
@@ -32,3 +33,4 @@ Are very welcome; please submit a PR and/or issue for feature requests/bugs/impr
 ##
 
 *Made with love in Luau + Lune*
+<img align="right" width="64" src="https://github.com/lune-org/lune/blob/main/assets/logo/tilt.png?raw=true" alt="Lune logo" />
