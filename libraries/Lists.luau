@@ -64,6 +64,16 @@ local List = ArrayList.List
             end
             return newPairedList
       end
+
+      function List.mapped<K,V>(dictionary: {[K]:V}, mapper: (key: K, value: V) -> (any?, any?))
+            return List.frompairs(dictionary):mappairs(function(key: K, value: V)
+                  local newK, newV = mapper(key, value)
+                  if newK and newV then
+                        return newK, newV
+                  end
+                  return nil
+            end)
+      end
       
       --[=[
             Creates a new dictionary by mapping keys and values from an existing dictionary.
@@ -467,7 +477,7 @@ local ListInstance = List.ListInstance
             return result
       end
 
-      function ListInstance.mappairs(self: List, map: (key: any, value: any) -> (any, any))
+      function ListInstance.mappairs(self: List, map: (key: any, value: any) -> (any?, any?))
             return self:map(function(value, index)
                   local new_key, new_value = map(value[1], value[2])
                   if new_key and new_value then
@@ -488,23 +498,39 @@ local ListInstance = List.ListInstance
             end)
       end
 
-      function ListInstance.remap_values_in_value(self: List, map: (value_in_value: any, inner_key: any, outer_key: any) -> (any))
+      --[=[
+            Allows you to remap the array values in a `LinkedList[key, array]`.
+            ```lua
+            local arrays_by_key = {
+                  part1 = {0, 1, 2, 3, 4},
+                  part2 = {5, 5, 6, 9}
+            }
+            local remapped = List.frompairs(arrays_by_key):remap_array_values(function(v, array_index, key)
+                  return v + 2
+            end)
+            ```
+
+            the array portion can be a regular {array} or another LinkedList!
+      ]=]
+      function ListInstance.remap_array_values(self: List, map: (value_in_value: any, inner_key: any, outer_key: any) -> (any)) : List
             return self:map(function(value, index)
                   local key, vals = unpack(value)
+                  assert(vals, `vals nil, key {key}, {value}, {index}`)
                   if vals["length"] == nil then -- is an {arraylike} 
                         local new_value = {}
                         for inner_key, val_in_vals in vals do
                               local remapped_val = map(val_in_vals, inner_key, key)
                               if remapped_val then
-                                    new_value[inner_key] = remapped_val
+                                    table.insert(new_value, remapped_val)
+                                    -- new_value[inner_key] = remapped_val
                               end
                         end
                         return {key, new_value}
                   else
                         local new_value : List = vals 
-                        return new_value:map(function(val_in_val, inner_key)
+                        return {key, new_value:map(function(val_in_val, inner_key)
                               return map(val_in_val, inner_key, key)
-                        end)
+                        end)}
                   end
             end)
       end
