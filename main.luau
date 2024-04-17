@@ -103,7 +103,7 @@ local function downloadFiles(recent_files: List, class_directories)
       }
 
       local downloadFile = function(file: File, path: string)
-            local result = process.spawn("curl", {`-o{file.filename}`, file.download_link}, {
+            local result = process.spawn("curl", {"-L", `-o{file.filename}`, file.download_link}, {
                   cwd = path
             })
             if result.ok then
@@ -138,14 +138,24 @@ local API_KEY = config.CANVAS_API_KEY
 local BASE_URL = config.BASE_URL .. "/api/v1/courses/"
 local Classes = List.frompairs(config.Classes)
 
-local arg = table.concat(process.args, " "):match("(%d)")
-local filter_days = tonumber(arg) or 7
+local args = table.concat(process.args, " ")
+local day = args:match("(%d)")
+local filter_days = tonumber(day) or 7
 
-print(`\nFiltering: last {filter_days} days...`)
-
+local clear_caches = args:match("clear%-cache")
 local class_directories = Classes:map_values(function(name, info: ClassInfo)
       return info.output_dir
 end):table() :: any
+
+if clear_caches then
+      for class, directory in class_directories do 
+            fs.removeDir(directory)
+            fs.writeDir(directory)
+            print(`Cleared directory: {directory}`)
+      end
+end
+
+print(`\nFiltering: last {filter_days} days...`)
 
 local files_by_class = getFilesFromCanvas(API_KEY, BASE_URL, Classes)
 
