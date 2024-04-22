@@ -51,20 +51,33 @@ local function readConfig()
       return config
 end
 
-local function getFilesFromCanvas(API_KEY: string, BASE_URL: string, Classes: List)
-
-      local sort_query = "/files?sort=created_at&order=desc&"
+local function getFilesFromCanvas(API_KEY: string, BASE_URL: string, Classes: List, search_term: string?)
+	local search_term = if search_term ~= "" then `search_term={search_term}&`
+			 	  else ``
+      local sort_query = "/files?sort=created_at&order=desc&" .. search_term
       local select_fields = List.new("display_name", "filename", "id", "updated_at", "url")
-
+      
       local callApi = function(url)
-            local response = process.spawn("curl", {`{url}access_token={API_KEY}`})
-            return jsonDecode(if response.ok then response.stdout else response.stderr)
+            local url = `{url}access_token={API_KEY}`
+            local response = process.spawn("curl", {url})
+            if response.ok then 
+            	local decoded = jsonDecode(response.stdout)
+                  if decoded.status == "unauthenticated" then
+                        print(`URL: {url}`)
+                        error("User is unauthenticated! Please check your API token.")
+                  else
+                        return decoded
+                  end
+            else
+                  print("Some other HTTP error occurred")
+                  error("http error")
+            end
       end
 
       return Classes:map_values(function(class, info: ClassInfo)
             local url = BASE_URL .. info.classid .. sort_query
-            local files = List.from(callApi(url))
-
+            local response = callApi(url)
+            local files = List.from(response)
             return files:map(function(file: FileProperties)
                   return List.mapped(file, function(property, value)
                         if not select_fields:has(property) then
@@ -138,14 +151,19 @@ local API_KEY = config.CANVAS_API_KEY
 local BASE_URL = config.BASE_URL .. "/api/v1/courses/"
 local Classes = List.frompairs(config.Classes)
 
-local args = table.concat(process.args, " ")
-local day = args:match("(%d)")
+local args = table.concat(process.args, " "):split(",")
+local day = args[1]:match("(%d+)")
 local filter_days = tonumber(day) or 7
 
-local clear_caches = args:match("clear%-cache")
+local search_term = args[2] or ""
+search_term = search_term:gsub(" ", "")
+
+local clear_caches = args[1]:match("clear%-cache")
 local class_directories = Classes:map_values(function(name, info: ClassInfo)
       return info.output_dir
 end):table() :: any
+
+-- print(search_term, clear_caches, filter_days)
 
 if clear_caches then
       for class, directory in class_directories do 
@@ -157,8 +175,9 @@ end
 
 print(`\nFiltering: last {filter_days} days...`)
 
-local files_by_class = getFilesFromCanvas(API_KEY, BASE_URL, Classes)
+local files_by_class = getFilesFromCanvas(API_KEY, BASE_URL, Classes, search_term)
 
 local recent_files_by_class = filterRecentFiles(files_by_class, filter_days)
 
 downloadFiles(recent_files_by_class, class_directories)
+ 
