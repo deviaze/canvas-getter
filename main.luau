@@ -115,7 +115,7 @@ local function downloadFiles(recent_files: List, class_directories)
             download_link: string,
       }
 
-      local downloadFile = function(file: File, path: string)
+      local function downloadFileToPath(file: File, path: string)
             local result = process.spawn("curl", {"-L", `-o{file.filename}`, file.download_link}, {
                   cwd = path
             })
@@ -133,7 +133,7 @@ local function downloadFiles(recent_files: List, class_directories)
 
             files:each(function(file: File)
                   if not existing_files:has(file.filename) then
-                        downloadFile(file, target_directory)
+                        downloadFileToPath(file, target_directory)
                   else
                         print(`- {file.filename} already exists; not downloading.`)
                   end
