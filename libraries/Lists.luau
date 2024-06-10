@@ -102,7 +102,7 @@ local ListInstance = List.ListInstance
             newListy.append("tortoise")
             ```
       ]=]
-      function ListInstance.append(self : List, ... : any)
+      function ListInstance.append(self : List, ... : any | {any})
             if not self.length then
                   error(`LinkedList TypeError: expected self, got ({self}). Did you use a dot .append instead of :append ?`)
             end

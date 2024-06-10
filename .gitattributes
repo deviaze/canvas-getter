@@ -1,11 +1,6 @@
 * text=auto
 
-# Temporarily highlight luau as normal lua files
-# until we get native linguist support for Luau
-*.luau linguist-language=Lua
-
-# Ensure all lua files use LF
-*.lua  eol=lf
+# Ensure all luau files use LF
 *.luau eol=lf
 
 # Ensure all txt files within tests use LF

@@ -16,7 +16,7 @@ local exit = process.exit
 local List = require("libraries/Lists")
 
 type List = List.List
-type ClassInfo = {classid: string, output_dir: string}
+type ClassInfo = {classid: string, output_dir: string, query: "Files" | "Modules"}
 type FileProperties = {
       display_name: string,
       filename: string,
@@ -35,30 +35,101 @@ local function readConfig()
       -- validate api key exists
       assert(config.CANVAS_API_KEY ~= "", "Missing Canvas API Key/Token; please generate one in settings.")
 
-      local classes = List.frompairs(config.Classes)
-      -- validate target dirs
-      local invalid_dirs = classes:mappairs(function(class_name, info: ClassInfo)
+      local invalid_dirs = List.new()
+
+      local classes = List.mapped(config.Classes, function(class: string, info: ClassInfo)
             local dir_exists = fs.isDir(info.output_dir)
-            return class_name, if dir_exists then nil else info.output_dir
+            if dir_exists then
+                  if not info.query then
+                        info.query = "Files"
+                  end
+                  return class, info
+            else
+                  invalid_dirs:append( {class, info.output_dir} )
+                  return nil
+            end
       end)
-      
+
       if not invalid_dirs.is_empty then
             print("Error: invalid output_dirs:")
             print(invalid_dirs:table())
-            process.exit(1)
+
+            exit(1)
       end
 
+      config.Classes = classes
+
       return config
+end
+
+local function getFilesFromCanvasNew(API_KEY: string, BASE_URL: string, Classes: List, search_term: string?)
+
+      local function callApi(query: string)
+            local response = process.spawn("curl", {BASE_URL .. query .. "access_token=" .. API_KEY})
+
+            if response.ok then
+                  local result = jsonDecode(response.stdout)
+                  if result.status == "unauthenticated" then
+                        error("User is unauthenticated; please check your URL and api key.")
+                  else
+                        return result
+                  end
+            else
+                  print("API REQUEST ERROR: response not okay.")
+                  print(response)
+                  exit(1)
+                  return nil
+            end
+
+      end
+
+      local search_term = if search_term and search_term ~= "" then
+            `search_term={search_term}&`
+      else
+            ""
+
+      local queries = {
+            Files = "/files?sort=created_at&order=desc&" .. search_term,
+            Modules = "/modules",
+      }
+
+      local select_fields = List.new("display_name", "filename", "id", "updated_at", "url")
+
+      local files_by_class = Classes:mappairs(function(class: string, info: ClassInfo)
+            local response = callApi(queries[info.query])
+            local files_list = List.from(response)
+            
+            local files = files_list:map(function(file: FileProperties) 
+                  return select_fields:map(function(field: string)
+                        if field == "updated_at" then
+                              return fromIsoDate(file[field]).unixTimestamp
+                        else
+                              return file[field]
+                        end
+                  end)
+            end)
+
+            return files
+      end)
+
+      return files_by_class
+
 end
 
 local function getFilesFromCanvas(API_KEY: string, BASE_URL: string, Classes: List, search_term: string?)
 	local search_term = if search_term ~= "" then `search_term={search_term}&`
 			 	  else ``
-      local sort_query = "/files?sort=created_at&order=desc&" .. search_term
+
+      local queries = {
+            files_query = "/files?sort=created_at&order=desc&" .. search_term,
+            modules_query = "/modules"
+      }
       local select_fields = List.new("display_name", "filename", "id", "updated_at", "url")
       
       local callApi = function(url)
             local url = `{url}access_token={API_KEY}`
+            print(url)
+            exit()
             local response = process.spawn("curl", {url})
             if response.ok then 
             	local decoded = jsonDecode(response.stdout)
@@ -70,14 +141,16 @@ local function getFilesFromCanvas(API_KEY: string, BASE_URL: string, Classes: Li
                   end
             else
                   print("Some other HTTP error occurred")
+                  print(response)
                   error("http error")
             end
       end
 
       return Classes:map_values(function(class, info: ClassInfo)
-            local url = BASE_URL .. info.classid .. sort_query
+            local url = BASE_URL .. info.classid .. queries.files_query
             local response = callApi(url)
             local files = List.from(response)
+
             return files:map(function(file: FileProperties)
                   return List.mapped(file, function(property, value)
                         if not select_fields:has(property) then
@@ -129,16 +202,16 @@ local function downloadFiles(recent_files: List, class_directories)
       recent_files:mappairs(function(class, files: List)
             print(`\n{class}:`)
             local target_directory = class_directories[class]
-            local existing_files = List.from(fs.readDir(target_directory))
+            local directory = List.from(fs.readDir(target_directory))
 
             files:each(function(file: File)
-                  if not existing_files:has(file.filename) then
+                  if not directory:has(file.filename) then
                         downloadFileToPath(file, target_directory)
                   else
                         print(`- {file.filename} already exists; not downloading.`)
                   end
             end)
-            return
+            return nil
       end)
 
 end
@@ -149,8 +222,7 @@ local config = readConfig()
 
 local API_KEY = config.CANVAS_API_KEY
 local BASE_URL = config.BASE_URL .. "/api/v1/courses/"
-local Classes = List.frompairs(config.Classes)
-
+local Classes = config.Classes
 local args = table.concat(process.args, " "):split(",")
 local day = args[1]:match("(%d+)")
 local filter_days = tonumber(day) or 7
